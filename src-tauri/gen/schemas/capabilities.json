@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default permissions for Kibo windows","local":true,"windows":["main","dashboard"],"permissions":["core:default","core:window:allow-hide","core:window:allow-show","core:webview:allow-create-webview-window"]}}
