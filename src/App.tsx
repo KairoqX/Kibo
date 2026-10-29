@@ -4,9 +4,22 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Kibo, { STATES, STATE_LABEL, type KiboState } from "./Kibo";
 import { sendActivity, useKibo, useSettings } from "./useKibo";
 
+/** Keeps the last message mounted for a moment so the bubble can fade out instead of vanishing. */
+function useFadingText(text: string | null, ms = 300) {
+  const [shown, setShown] = useState<{ text: string; out: boolean } | null>(null);
+  useEffect(() => {
+    if (text) { setShown({ text, out: false }); return; }
+    setShown((s) => (s ? { ...s, out: true } : s));
+    const t = window.setTimeout(() => setShown(null), ms);
+    return () => window.clearTimeout(t);
+  }, [text, ms]);
+  return shown;
+}
+
 function PetWindow() {
   const [settings] = useSettings();
-  const { state, message, trigger } = useKibo(settings);
+  const { state, message, trigger, pulse } = useKibo(settings);
+  const bubble = useFadingText(message);
   const press = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
 
   useEffect(() => {
@@ -46,7 +59,7 @@ function PetWindow() {
   }
   function onClick() {
     if (press.current?.dragged) { press.current = null; return; }
-    trigger("encourage", 3800);
+    trigger("wave", 3400);   // click = Kibo waves back
   }
 
   return (
@@ -56,10 +69,10 @@ function PetWindow() {
         <button className="icon-button" onClick={hidePet} title="Hide Kibo (restore from the tray icon)" aria-label="Hide Kibo">—</button>
       </div>
       <div className="pet-bubble-slot" data-tauri-drag-region>
-        {message && <div className="speech" key={message} role="status">{message}<span className="speech-tail" /></div>}
+        {bubble && <div className={`speech${bubble.out ? " is-out" : ""}`} key={bubble.text} role="status">{bubble.text}<span className="speech-tail" /></div>}
       </div>
       <button className="pet-robot" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onClick={onClick} aria-label="Kibo the robot">
-        <Kibo state={state} />
+        <Kibo state={state} replay={pulse} motion={settings.motion} />
       </button>
     </main>
   );
@@ -73,7 +86,7 @@ const SLEEPY_OPTIONS = [
 function Dashboard() {
   const [tracking, setTracking] = useState(false);
   const [settings, update] = useSettings();
-  const { state, message, trigger } = useKibo(settings);
+  const { state, message, trigger, pulse } = useKibo(settings);
 
   async function preview(s: KiboState) {
     // Broadcast so the desktop Kibo reacts too; fall back to local-only in a browser.
@@ -110,7 +123,7 @@ function Dashboard() {
         <header className="dashboard-header"><div><p className="eyebrow">YOUR DEVELOPER SPACE</p><h1>Welcome back, builder.</h1><p className="muted">Small steps make great software.</p></div><div className="online-pill"><span className="status-pulse" /> Kibo is online</div></header>
         <section className="hero-card">
           <div className="hero-copy"><span className="tag">✦ YOUR COMPANION</span><h2>Ready to make<br />something awesome?</h2><p>Kibo will celebrate your coding milestones, one keystroke at a time.</p><button className="primary-button" onClick={toggleSession}>{tracking ? "Pause activity tracking" : "Start a coding session"} <span>→</span></button></div>
-          <div className="hero-robot"><div className="robot-scene"><Kibo state={state} /></div></div>
+          <div className="hero-robot"><div className="robot-scene"><Kibo state={state} replay={pulse} motion={settings.motion} /></div></div>
           <div className="hero-orb orb-one" /><div className="hero-orb orb-two" />
         </section>
         <div className="section-heading"><div><h2>Your activity</h2><p className="muted">A calm look at your coding day.</p></div><span className="date-chip">TODAY</span></div>
@@ -142,6 +155,10 @@ function Dashboard() {
           <label className="setting-row"><span><strong>Get sleepy after</strong><small>Kibo takes a break after this much inactivity, then falls asleep at double the time.</small></span>
             <select className="setting-select" value={settings.sleepyAfter} onChange={e => update({ sleepyAfter: Number(e.target.value) })}>
               {SLEEPY_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select></label>
+          <label className="setting-row"><span><strong>Animation</strong><small>"Follow system" keeps Kibo gentle if Windows has animation effects turned off. "Always full" ignores that setting.</small></span>
+            <select className="setting-select" value={settings.motion} onChange={e => update({ motion: e.target.value as "system" | "full" })}>
+              <option value="system">Follow system</option><option value="full">Always full</option>
             </select></label>
           <p className="privacy-note">🔒 Privacy first · No account · No cloud required</p></section>
         <footer className="dashboard-footer">KIBO V0.1.0 <span>MADE FOR THE LOVE OF BUILDING THINGS</span></footer>

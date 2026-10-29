@@ -7,9 +7,10 @@ export type Settings = {
   messages: boolean;     // show encouragement speech bubbles
   quiet: boolean;        // fewer, calmer bubbles while focusing
   sleepyAfter: number;   // seconds of inactivity before "break"; sleep starts at 2x
+  motion: "system" | "full"; // "system" follows the OS reduced-motion setting (gentle); "full" always animates fully
 };
 const KEY = "kibo.settings.v1";
-export const DEFAULT_SETTINGS: Settings = { messages: true, quiet: false, sleepyAfter: 120 };
+export const DEFAULT_SETTINGS: Settings = { messages: true, quiet: false, sleepyAfter: 120, motion: "system" };
 
 function load(): Settings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; }
@@ -38,6 +39,8 @@ export const POOLS: Record<KiboState, string[]> = {
   idle: ["Ready when you are!", "One step at a time!"],
   typing: ["Let's keep going!", "You're doing great!", "Nice rhythm!"],
   coding: ["Locked in. I'm right here.", "Focus looks good on you!"],
+  happy: ["Nice one!", "That's looking good!", "Keep it up!"],
+  wave: ["Hi there!", "Hey, you!", "Hello, builder!"],
   achievement: ["Another milestone!", "Nice progress!", "We fixed it!", "Look at you go!"],
   break: ["Time for a tiny break?", "Stretch and sip some water?"],
   sleep: [],
@@ -66,11 +69,12 @@ const between = (minS: number, maxS: number) => (minS + Math.random() * (maxS - 
 export function useKibo(settings: Settings) {
   const [state, setState] = useState<KiboState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [pulse, setPulse] = useState(0);   // bumps on every trigger so Kibo can replay a one-shot
   const sref = useRef(settings);
   sref.current = settings;
 
   const r = useRef({
-    lastKey: 0, burstStart: 0, lastActivity: Date.now(), lastTick: Date.now(),
+    lastKey: 0, burstStart: 0, lastActivity: Date.now(), lastTick: Date.now(), nextHappy: 100,
     override: null as null | { state: KiboState; until: number },
     prev: "idle" as KiboState, keys: 0, nextKeys: 300,
     activeMs: 0, nextActiveMs: 15 * 60_000,
@@ -99,6 +103,7 @@ export function useKibo(settings: Settings) {
     c.override = s === "idle" ? null : { state: s, until: now + ms };
     c.prev = s;
     setState(s);
+    setPulse((n) => n + 1);
     if (withMessage) say(POOLS[s], true);
   }, [say]);
 
@@ -106,7 +111,10 @@ export function useKibo(settings: Settings) {
     const c = r.current, now = Date.now();
     if (now - c.lastKey > 3000) c.burstStart = now;
     c.lastKey = now; c.lastActivity = now; c.keys += 1;
-    if (c.keys >= c.nextKeys) { c.nextKeys += 300; trigger("achievement", 4200); }
+    if (c.keys >= c.nextKeys) {
+      c.nextKeys += 300; c.nextHappy = c.nextKeys - 200;      // next small cheer 100 keys later
+      trigger("achievement", 4200);
+    } else if (c.keys >= c.nextHappy) { c.nextHappy += 100; trigger("happy", 2800, false); }
   }, [trigger]);
 
   // key activity (counts only)
@@ -165,5 +173,5 @@ export function useKibo(settings: Settings) {
 
   useEffect(() => { if (!settings.messages) setMessage(null); }, [settings.messages]);
 
-  return { state, message, trigger };
+  return { state, message, trigger, pulse };
 }
