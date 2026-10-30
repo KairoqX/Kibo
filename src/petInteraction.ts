@@ -16,7 +16,12 @@
  * setTimeout chain (never overlapping), fast only while the pointer is near Kibo, slow when far,
  * slower still when the pointer is still, and stops completely while Kibo is hidden.
  */
-import { availableMonitors, getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
+import {
+  availableMonitors,
+  getCurrentWindow,
+  primaryMonitor,
+  cursorPosition
+} from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import type { KiboRig } from "./kiboRig";
 import type { KiboState } from "./kiboRig";
@@ -169,7 +174,7 @@ export class PetController {
         const p = await this.win.outerPosition();
         this.winX = p.x; this.winY = p.y; this.lastPosRefresh = now;
       }
-      const c = await this.win.cursorPosition();
+      const c = await cursorPosition();
       if (!this.running) return;
       this.failures = 0;
       delay = this.onCursor(c.x, c.y);

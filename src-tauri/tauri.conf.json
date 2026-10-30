@@ -43,6 +43,12 @@
       "icons/icon.png",
       "icons/icon.ico"
     ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
+      }
+    },
     "category": "Utility",
     "shortDescription": "A tiny coding companion",
     "longDescription": "Kibo is a cute desktop robot that cheers you on while you code."
