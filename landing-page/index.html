@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101216">
+    <meta name="description" content="Kibo is a little desktop companion for your coding sessions. Meet your new desk buddy.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Kibo — code with a companion">
+    <meta property="og:description" content="A little desktop companion for your coding sessions.">
+    <meta property="og:image" content="./assets/kibo.png">
+    <title>Kibo — code with a companion</title>
+    <link rel="icon" type="image/png" href="./assets/kibo.png">
+    <link rel="stylesheet" href="./style.css">
+    <script src="./script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <div class="masthead-inner">
+        <a class="wordmark" href="#top" aria-label="Kibo home">
+          <img src="./assets/kibo.png" width="30" height="30" alt="" decoding="async">
+          <span>Kibo</span><span class="wordmark-period" aria-hidden="true">.</span>
+        </a>
+        <p class="masthead-note">A little desktop companion</p>
+        <a class="source-link" href="https://github.com/KairoqX/Kibo" target="_blank" rel="noopener noreferrer">source code <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="main" class="page-shell">
+      <section class="corner" id="top" aria-labelledby="headline">
+        <div class="corner-topline">
+          <p><span class="tiny-mark" aria-hidden="true"></span>Kibo’s little corner</p>
+          <p class="corner-coordinate">DESK / 01</p>
+        </div>
+
+        <div class="corner-scene" id="kibo-scene">
+          <div class="mascot-stage">
+            <figure class="mascot-figure">
+              <button class="mascot-trigger" id="mascot-trigger" type="button" aria-label="Say hello to Kibo">
+                <svg class="kibo" viewBox="0 0 200 241" role="img" aria-label="Kibo, a full-body friendly robot with cyan eyes and antenna, a pale shell, pink cheeks, arms, and two small feet">
+                  <ellipse data-p="shadow" cx="100" cy="232" rx="40" ry="4.5" fill="#4DD0E1" opacity=".18" />
+                  <g data-p="body">
+                    <g data-p="footL">
+                      <ellipse cx="86" cy="216" rx="12" ry="7.5" fill="#4DD0E1" />
+                      <ellipse cx="86" cy="213.5" rx="12" ry="7.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" />
+                    </g>
+                    <g data-p="footR">
+                      <ellipse cx="114" cy="216" rx="12" ry="7.5" fill="#4DD0E1" />
+                      <ellipse cx="114" cy="213.5" rx="12" ry="7.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" />
+                    </g>
+
+                    <g data-p="upper">
+                      <g data-p="neck"><rect x="89" y="131" width="22" height="18" rx="8" fill="#C6D2EB" /></g>
+                      <g data-p="torso">
+                        <rect x="73" y="152" width="54" height="50" rx="19" fill="#E8F0FF" stroke="#CAD5E8" stroke-width="1" />
+                        <circle data-p="halo" cx="100" cy="177" r="15" fill="#4DD0E1" opacity=".25" />
+                        <circle cx="100" cy="177" r="9.5" fill="#0F172A" />
+                        <circle cx="100" cy="177" r="6.3" fill="#4DD0E1" />
+                      </g>
+
+                      <g data-p="head">
+                        <g data-p="antenna">
+                          <rect x="98" y="9" width="4" height="21" rx="2" fill="#C6D2EB" />
+                          <circle cx="100" cy="9" r="7" fill="#4DD0E1" />
+                        </g>
+                        <rect x="15.5" y="59" width="18.7" height="46.7" rx="8.4" fill="#C6D2EB" />
+                        <rect x="165.8" y="59" width="18.7" height="46.7" rx="8.4" fill="#C6D2EB" />
+                        <rect x="30" y="24" width="140" height="116.7" rx="46.7" fill="#E8F0FF" stroke="#CAD5E8" stroke-width="1.25" />
+                        <rect x="43.5" y="45" width="113" height="74.7" rx="30.3" fill="#0F172A" />
+                        <g data-p="eyes">
+                          <g data-p="eyeL">
+                            <ellipse cx="76" cy="81.2" rx="10.5" ry="15.2" fill="#4DD0E1" />
+                            <ellipse cx="79.15" cy="74.816" rx="3.15" ry="3.04" fill="#E8FDFF" opacity=".9" />
+                          </g>
+                          <g data-p="eyeR">
+                            <ellipse cx="124" cy="81.2" rx="10.5" ry="15.2" fill="#4DD0E1" />
+                            <ellipse cx="127.15" cy="74.816" rx="3.15" ry="3.04" fill="#E8FDFF" opacity=".9" />
+                          </g>
+                          <path data-p="arcHL" d="M66 88.2 Q76 69.2 86 88.2" fill="none" stroke="#4DD0E1" stroke-width="6" stroke-linecap="round" opacity="0" />
+                          <path data-p="arcHR" d="M114 88.2 Q124 69.2 134 88.2" fill="none" stroke="#4DD0E1" stroke-width="6" stroke-linecap="round" opacity="0" />
+                          <path data-p="arcSL" d="M66 79.2 Q76 90.2 86 79.2" fill="none" stroke="#4DD0E1" stroke-width="6" stroke-linecap="round" opacity="0" />
+                          <path data-p="arcSR" d="M114 79.2 Q124 90.2 134 79.2" fill="none" stroke="#4DD0E1" stroke-width="6" stroke-linecap="round" opacity="0" />
+                        </g>
+                        <g data-p="brow" stroke="#4DD0E1" stroke-width="3" stroke-linecap="round" fill="none" opacity="0">
+                          <path d="M64 62 L88 56" />
+                          <path d="M112 56 L136 62" />
+                        </g>
+                        <ellipse data-p="cheekL" cx="58.7" cy="103.3" rx="8.2" ry="4.7" fill="#FF8FB1" />
+                        <ellipse data-p="cheekR" cx="141.3" cy="103.3" rx="8.2" ry="4.7" fill="#FF8FB1" />
+                        <path data-p="mIdle" d="M113.5 105.8 A14 9.3 0 0 1 86.5 105.8" fill="none" stroke="#4DD0E1" stroke-width="3.3" stroke-linecap="round" />
+                        <g transform="translate(0 12)">
+                          <path data-p="mSmile" d="M89 93 Q100 105 111 93" fill="none" stroke="#4DD0E1" stroke-width="3.6" stroke-linecap="round" opacity="0" />
+                          <g data-p="mOpen" opacity="0">
+                            <path d="M89 91 Q100 110 111 91 Z" fill="#4DD0E1" />
+                            <path d="M94.5 98 Q100 103 105.5 98 Q100 95.5 94.5 98Z" fill="#FF8FB1" />
+                          </g>
+                          <path data-p="mLine" d="M94 96 Q100 100 106 96" fill="none" stroke="#4DD0E1" stroke-width="3.6" stroke-linecap="round" opacity="0" />
+                          <path data-p="mWorry" d="M93 99 Q100 93 107 99" fill="none" stroke="#4DD0E1" stroke-width="3.6" stroke-linecap="round" opacity="0" />
+                          <path data-p="mSleep" d="M96.5 97 Q100 100 103.5 97" fill="none" stroke="#4DD0E1" stroke-width="3.6" stroke-linecap="round" opacity="0" />
+                          <ellipse data-p="mYawn" cx="100" cy="98" rx="6.5" ry="7.4" fill="#4DD0E1" opacity="0" />
+                        </g>
+                      </g>
+
+                      <g data-p="armL">
+                        <rect x="57" y="158" width="13" height="26" rx="6.5" fill="#4DD0E1" />
+                        <rect x="57" y="158" width="13" height="19.5" rx="6.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" />
+                        <g data-p="handL">
+                          <ellipse data-p="thumb" cx="53.5" cy="193" rx="6.5" ry="4" fill="#E8F0FF" opacity="0" />
+                          <circle cx="63.5" cy="194.5" r="7.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" />
+                        </g>
+                      </g>
+                      <g data-p="armR">
+                        <rect x="130" y="158" width="13" height="26" rx="6.5" fill="#4DD0E1" />
+                        <rect x="130" y="158" width="13" height="19.5" rx="6.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" />
+                        <g data-p="handR"><circle cx="136.5" cy="194.5" r="7.5" fill="#E8F0FF" stroke="#CAD5E8" stroke-width=".65" /></g>
+                      </g>
+                    </g>
+                  </g>
+                </svg>
+              </button>
+              <figcaption><span>hey, good to see you.</span><span class="caption-signature">— Kibo</span></figcaption>
+            </figure>
+            <span class="stage-note">A FRIEND FOR THE QUIET BITS</span>
+          </div>
+
+          <div class="invitation">
+            <p class="eyebrow">FOR YOUR CODING SESSIONS</p>
+            <h1 id="headline"><span>code</span><br>with <em>a companion.</em></h1>
+            <p class="tagline">Kibo is a little desktop companion for your coding sessions.</p>
+            <div class="download-block" id="download">
+              <div class="download-actions">
+                <a class="download-link" id="download-button" href="#" aria-describedby="download-status">
+                  <strong id="download-label">Download for Windows</strong>
+                </a>
+                <button class="download-link download-link-soon" type="button" disabled aria-describedby="linux-status">
+                  <span>Download for Linux</span>
+                  <span class="coming-soon" id="linux-status">Coming soon</span>
+                </button>
+              </div>
+              <p class="release-status" id="download-status" role="status" aria-live="polite">Click to check for the latest published Windows installer.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="corner-bottomline" aria-hidden="true">
+          <span>TAKE YOUR TIME.</span>
+          <span class="bottomline-dash"></span>
+          <span>I’M RIGHT HERE.</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="colophon">
+      <div class="colophon-inner">
+        <p class="colophon-note">END OF KIBO’S CORNER <span>·</span> © <span id="year">2026</span> KairoqX</p>
+        <nav class="colophon-links" aria-label="Social and personal links">
+          <a href="https://instagram.com/_kairoqx_" target="_blank" rel="noopener noreferrer">Instagram <span aria-hidden="true">↗</span></a>
+          <a href="https://kairoqx.vercel.app" target="_blank" rel="noopener noreferrer">Developer’s site <span aria-hidden="true">↗</span></a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
