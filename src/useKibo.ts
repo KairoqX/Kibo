@@ -38,28 +38,60 @@ export function useSettings() {
 
 /* ---------- messages ---------- */
 export const POOLS: Record<KiboState, string[]> = {
-  idle: ["Ready when you are!", "One step at a time!"],
-  typing: ["Let's keep going!", "You're doing great!", "Nice rhythm!"],
-  coding: ["Locked in. I'm right here.", "Focus looks good on you!"],
-  happy: ["Nice one!", "That's looking good!", "Keep it up!"],
-  wave: ["Hi there!", "Hey, you!", "Hello, builder!"],
-  achievement: ["Another milestone!", "Nice progress!", "We fixed it!", "Look at you go!"],
-  break: ["Time for a tiny break?", "Stretch and sip some water?"],
+  idle: [
+    "Ready when you are!", "One step at a time!", "I'm right here.", "Whenever you're ready!",
+    "No rush. We've got time.", "Small steps count!", "Good things take a few tries.", "Let's build something nice.",
+  ],
+  typing: [
+    "Let's keep going!", "You're doing great!", "Nice rhythm!", "Look at those keys go!",
+    "Steady and strong!", "You're in the groove!", "Keep that momentum!", "Great pace!",
+  ],
+  coding: [
+    "Locked in. I'm right here.", "Focus looks good on you!", "Deep in the zone!", "I'll stay quiet. You've got this.",
+    "Nice and focused!", "Flow state unlocked!", "Take your time. No pressure.",
+  ],
+  happy: [
+    "Nice one!", "That's looking good!", "Keep it up!", "Yes! That's the stuff!",
+    "Love that progress!", "Smooth work!", "That felt good!", "Look at that go!",
+  ],
+  wave: [
+    "Hi there!", "Hey, you!", "Hello, builder!", "Oh, hello!",
+    "Good to see you!", "Hiya!", "Hey hey!", "Nice to see you here!",
+  ],
+  achievement: [
+    "Another milestone!", "Nice progress!", "We fixed it!", "Look at you go!",
+    "High five!", "That's a big one!", "You earned this!", "Milestone unlocked!", "Awesome work today!",
+  ],
+  break: [
+    "Time for a tiny break?", "Stretch and sip some water?", "Rest your eyes for a moment?", "A short walk might help!",
+    "Breaks make you sharper.", "Maybe a snack break?", "Shoulders down, deep breath.", "Look away from the screen for a bit?",
+  ],
   sleep: [],
-  encourage: ["You're doing great!", "I'm rooting for you!", "You've got this!", "One step at a time!"],
-  error: ["Bugs happen. We'll sort it out!", "Take a breath. We can fix this.", "It's okay, we'll figure it out together."],
+  encourage: [
+    "You're doing great!", "I'm rooting for you!", "You've got this!", "One step at a time!",
+    "Proud of you!", "Keep going, you're close!", "Every line counts!", "You're better than you think!",
+    "Progress is progress!", "I believe in you!",
+  ],
+  error: [
+    "Bugs happen. We'll sort it out!", "Take a breath. We can fix this.", "It's okay, we'll figure it out together.",
+    "Even great devs hit errors.", "Read it slowly. The clue is in there.", "One bug at a time.",
+    "You've solved harder ones!", "Step back, then try again.",
+  ],
 };
-const WELCOME_BACK = ["Welcome back!", "Ready when you are!"];
+const WELCOME_BACK = [
+  "Welcome back!", "Ready when you are!", "There you are!", "Good to have you back!",
+  "Missed you! Let's go.", "Back to it!", "Fresh start, fresh ideas!",
+];
 
 /** Short, occasional lines for pointer interactions (the caller rate-limits them). */
 export const INTERACTION_POOLS = {
-  hover: ["Hey!", "Oh, hi!", "Hi, builder!"],
-  pat: ["Hehe!", "Nice!", "That's nice!"],
-  patStreak: ["Let's code!", "Okay, I'm happy!"],
-  poke: ["Hey!", "Boop!", "Hehe, that tickles!"],
-  giggle: ["Hehehe!", "Okay, okay!", "You're silly!"],
-  drop: ["Whoa!", "New spot!", "Wheee!"],
-  wake: ["Oh! Hi!", "I'm up, I'm up!"],
+  hover: ["Hey!", "Oh, hi!", "Hi, builder!", "Hello there!", "You called?", "Oh! Hey!", "Need me?", "Psst, hi!"],
+  pat: ["Hehe!", "Nice!", "That's nice!", "Ooh, that feels good!", "Aww, thanks!", "Yay!", "More pats, please!", "I like that!", "Hehe, thank you!"],
+  patStreak: ["Let's code!", "Okay, I'm happy!", "You're the best!", "Now I'm ready to build!", "Energy restored!", "Let's make something great!"],
+  poke: ["Hey!", "Boop!", "Hehe, that tickles!", "Oh! Hi!", "Eep!", "What's up?", "I'm ticklish!", "Boing!", "You got me!"],
+  giggle: ["Hehehe!", "Okay, okay!", "You're silly!", "Hahaha, stop!", "That tickles!", "I give up, you win!", "Alright, alright!"],
+  drop: ["Whoa!", "New spot!", "Wheee!", "Nice view!", "Comfy here!", "Ooh, I like it here!", "Landed it!", "Cozy corner!"],
+  wake: ["Oh! Hi!", "I'm up, I'm up!", "Mm? Oh, hello!", "I was just resting my eyes!", "Good to see you!", "Back online!"],
 } as const;
 
 /* ---------- cross-window activity events ---------- */
@@ -103,7 +135,7 @@ export function useKibo(settings: Settings) {
     const fresh = pool.filter((m) => !c.recent.includes(m));
     const notLast = pool.filter((m) => m !== c.recent[0]);   // never repeat back to back
     const m = pick(fresh.length ? fresh : notLast.length ? notLast : pool);
-    c.recent = [m, ...c.recent].slice(0, 6);
+    c.recent = [m, ...c.recent].slice(0, 10);
     c.lastMsgAt = now;
     setMessage(m);
     window.clearTimeout(c.hideTimer);
@@ -115,8 +147,10 @@ export function useKibo(settings: Settings) {
     const c = r.current, s = sref.current, now = Date.now();
     if (!s.messages || pool.length === 0) return false;
     if (now - c.lastMsgAt < (s.quiet ? gap * 3 : gap)) return false;
-    const m = pick(pool.filter((x) => x !== c.recent[0]).length ? pool.filter((x) => x !== c.recent[0]) : [...pool]);
-    c.recent = [m, ...c.recent].slice(0, 6); c.lastMsgAt = now;
+    const fresh = pool.filter((x) => !c.recent.includes(x));            // avoid anything said in the last few bubbles
+    const notLast = pool.filter((x) => x !== c.recent[0]);
+    const m = pick(fresh.length ? fresh : notLast.length ? notLast : [...pool]);
+    c.recent = [m, ...c.recent].slice(0, 10); c.lastMsgAt = now;
     setMessage(m);
     window.clearTimeout(c.hideTimer);
     c.hideTimer = window.setTimeout(() => setMessage(null), show);
