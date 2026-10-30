@@ -40,37 +40,30 @@
   .fx, .fx.is-off { animation-duration: .001ms; }
 }
 
-/* ===== Transparent floating pet window (no panel behind the character) ===== */
+/* ===== Transparent floating pet window (no panel behind the character) =====
+   The window is click-through except where `data-hit` elements are drawn (see petInteraction.ts):
+   only Kibo's painted shapes and the hover buttons catch the mouse. */
 html, body, #root { background: transparent; }
-body.is-pet { overflow: hidden; user-select: none; }
-.pet { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+body.is-pet { overflow: hidden; user-select: none; -webkit-user-select: none; }
+.pet { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; pointer-events: none; }
 .pet-bubble-slot { height: 62px; width: 100%; display: flex; align-items: flex-end; justify-content: center; padding: 0 8px 12px; }
-.pet .speech { position: relative; margin: 0; max-width: 220px; padding: 9px 14px; background: #E8F0FF; color: #0F172A; border-radius: 16px; font-size: 12px; font-weight: 600; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px #0F172A55; animation: bubble-in .3s cubic-bezier(.2,.9,.3,1.2) both; }
+.pet .speech { position: relative; margin: 0; max-width: min(220px, calc(100vw - 16px)); padding: 9px 14px; background: #E8F0FF; color: #0F172A; border-radius: 16px; font-size: 14px; font-weight: 600; line-height: 1.3; text-align: center; box-shadow: 0 4px 14px #0F172A55; animation: bubble-in .3s cubic-bezier(.2,.9,.3,1.2) both; }
 .pet .speech.is-out { animation: bubble-out .3s ease-in forwards; }
 .pet .speech-tail { position: absolute; left: 50%; bottom: -5px; width: 11px; height: 11px; background: #E8F0FF; border-radius: 2px; transform: translateX(-50%) rotate(45deg); }
-.pet-robot { display: block; width: 200px; height: 241px; padding: 0; border: 0; background: transparent; cursor: grab; flex: none; }
+/* Size follows --pet-scale (layout size, not transform), so the vector art stays crisp. */
+.pet-robot { display: block; width: calc(200px * var(--pet-scale, 1)); height: calc(241px * var(--pet-scale, 1)); padding: 0; border: 0; background: transparent; cursor: grab; flex: none; pointer-events: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
 .pet-robot:active { cursor: grabbing; }
 .pet-robot:focus-visible { outline: 2px solid #4DD0E1; outline-offset: 4px; border-radius: 24px; }
-.pet-controls { position: absolute; top: 6px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity .2s; }
-.pet:hover .pet-controls, .pet:focus-within .pet-controls { opacity: 1; }
-.pet-controls .icon-button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #4DD0E166; background: #0F172Acc; color: #C6D2EB; font-size: 13px; line-height: 1; padding: 0; }
+/* hit-testing: only painted shapes of the character catch the pointer (not the svg box, shadow or particles) */
+.pet-robot .kibo { pointer-events: none; }
+.pet-robot .kibo * { pointer-events: visiblePainted; }
+.pet-robot .kibo [data-p="shadow"], .pet-robot .fx, .pet-robot .fx * { pointer-events: none; }
+/* hover buttons sit in the transparent margin beside Kibo and stay for a moment after the pointer leaves */
+.pet-controls { position: absolute; right: 3px; bottom: calc(241px * var(--pet-scale, 1) * 0.42); display: flex; flex-direction: column; gap: 8px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.pet.show-controls .pet-controls, .pet:focus-within .pet-controls { opacity: 1; pointer-events: auto; }
+.pet-controls .icon-button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #4DD0E166; background: #0F172Acc; color: #C6D2EB; padding: 0; }
+.pet-controls .icon-button svg { width: 16px; height: 16px; }
 .pet-controls .icon-button:hover { background: #0F172A; color: #4DD0E1; }
+.pet-controls .icon-button:focus-visible { outline: 2px solid #4DD0E1; outline-offset: 2px; }
 @keyframes bubble-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-4px) scale(.97); } }
 @keyframes bubble-in { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
-
-/* wrapper used by the dashboard hero */
-.robot-scene { width: 210px; height: 230px; position: relative; margin: 0 auto; }
-
-/* ===== Dashboard additions ===== */
-.preview-card { margin-top: 16px; padding: 20px 22px; background: white; border: 1px solid #eaecf2; border-radius: 15px; }
-.preview-card h3 { margin: 0 0 5px; font: 600 14px 'Space Grotesk'; }
-.preview-now { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 14px 0 12px; font-size: 11px; color: #6c7488; }
-.state-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: #e5f8fa; color: #0f5560; font-weight: 700; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
-.state-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.state-chip { padding: 8px 13px; border: 1px solid #e2e6ef; border-radius: 9px; background: #f8f9fc; color: #3b4458; font-size: 11px; font-weight: 600; }
-.state-chip:hover { background: #e5f8fa; border-color: #4DD0E1; }
-.state-chip.active { background: #4DD0E1; border-color: #4DD0E1; color: #0F172A; }
-.setting-select { padding: 6px 8px; border: 1px solid #dfe3ec; border-radius: 8px; background: #f8f9fc; color: #3b4458; font: inherit; font-size: 11px; }
-.visibility-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-.ghost-button { padding: 9px 13px; border: 1px solid #dfe3ec; border-radius: 9px; background: white; color: #3b4458; font-size: 11px; font-weight: 600; }
-.ghost-button:hover { border-color: #4DD0E1; background: #f1fcfd; }

@@ -300,6 +300,85 @@ const ORDER = Object.keys(SPECS) as KiboState[];
 /** States whose motion is slow enough to render at 30 fps (typing and all one-shots stay at display rate). */
 const SLOW_STATES = new Set<KiboState>(["idle", "coding", "break", "sleep", "error"]);
 
+/* ------------------------------------------------------- interaction layer */
+/**
+ * Pointer interactions are an ADDITIVE layer on top of the state blend. Nothing here swaps a pose:
+ *  - continuous inputs (look-at, hover, being held, drag velocity) are smoothed and added to the targets;
+ *  - short reactions (pat / poke / giggle / land) are keyframed deltas that start and end at zero.
+ * Everything still goes through the same springs, so interactions blend with idle, typing, sleep...
+ */
+export type Reaction = "pat" | "poke" | "giggle" | "land";
+const REACTION_DUR: Record<Reaction, number> = { pat: 1.5, poke: 1.1, giggle: 1.9, land: 0.8 };
+
+/** Move the mouth/cheeks toward the smile without breaking the "mouth weights sum to 1" rule. */
+function smile(T: Vec, w: number, eyes = true) {
+  const k = clamp(w, 0, 1);
+  if (eyes) T.happy = Math.max(T.happy, k);
+  T.cheek = Math.max(T.cheek, k);
+  const take = clamp(T.mIdle, 0, 1) * k;
+  T.mIdle -= take; T.mSmile += take;
+}
+
+type ReactionFn = (u: number, T: Vec, M: Motion, k: number, dir: number) => void;
+const REACTIONS: Record<Reaction, ReactionFn> = {
+  /** head pat: head is pressed down and nuzzles, happy ^ ^ eyes, antenna wiggles, arms lift a little */
+  pat: (u, T, M, k) => {
+    const A = M.amp * k, B = M.big * k;
+    const joy = bump(u, 0.1, 0.4, 0.95, 1.4);
+    T.headY += A * 3.2 * kf(u, [[0, 0], [0.12, 1, "out"], [0.4, 0.5], [0.62, 0.75], [0.95, 0.15], [1.4, 0]]);
+    T.bodySY += B * kf(u, [[0, 0], [0.12, -0.04, "out"], [0.4, -0.015], [0.62, -0.025], [1.0, 0.01], [1.4, 0]]);
+    T.bodySX += B * kf(u, [[0, 0], [0.12, 0.028, "out"], [0.5, 0.012], [1.4, 0]]);
+    T.headRot += A * 4 * osc(u, 0.75) * joy;
+    T.ant += A * 10 * osc(u, 0.42) * bump(u, 0.1, 0.35, 1.0, 1.5);
+    T.armL += A * 9 * joy; T.armR += A * 9 * joy;
+    T.fLR += A * 5 * osc(u, 0.5) * joy; T.fRR -= A * 5 * osc(u, 0.5) * joy;
+    smile(T, bump(u, 0, 0.14, 0.95, 1.5) * k);
+  },
+  /** poke on the body: small recoil away from the poke, arms flinch up, quick hop, then a shy smile */
+  poke: (u, T, M, k, dir) => {
+    const A = M.amp * k, B = M.big * k;
+    T.bodyY += B * kf(u, [[0, 0], [0.07, 2.2, "out"], [0.2, -5.5, "out"], [0.42, 0.8, "in"], [0.55, -1.2], [0.78, 0]]);
+    T.bodySX += B * (kf(u, [[0, 1], [0.07, 1.05], [0.2, 0.97], [0.42, 1.04], [0.7, 1]]) - 1);
+    T.bodySY += B * (kf(u, [[0, 1], [0.07, 0.94], [0.2, 1.04], [0.42, 0.95], [0.7, 1]]) - 1);
+    T.sway += A * dir * kf(u, [[0, 0], [0.1, 5], [0.35, -2.5], [0.7, 0.8], [1.0, 0]]);
+    T.headRot += A * dir * kf(u, [[0, 0], [0.12, -3], [0.4, 3], [0.8, 0]]);
+    const flinch = kf(u, [[0, 0], [0.1, 26], [0.45, 12], [1.0, 0]]);
+    T.armL += A * flinch; T.armR += A * flinch;
+    T.handL += A * 10 * osc(u, 0.4) * bump(u, 0, 0.1, 0.4, 0.8);
+    T.handR += A * 10 * osc(u, 0.4, 1) * bump(u, 0, 0.1, 0.4, 0.8);
+    T.ant -= A * dir * 14 * osc(u, 0.35) * Math.max(0, 1 - u);
+    const wide = bump(u, 0, 0.08, 0.4, 0.7) * k;
+    T.eyeSX += 0.1 * wide; T.eyeSY += 0.14 * wide;
+    const f = kf(u, [[0, 0], [0.2, 0], [0.5, 1], [0.8, 1], [1.1, 0]]) * k;   // "hehe" after the surprise
+    smile(T, f, false);
+    const fy = A * kf(u, [[0, 0], [0.2, -1.5], [0.5, 0], [1.1, 0]]);
+    T.fLY += fy; T.fRY += fy;
+  },
+  /** repeated clicks: a quick happy wiggle with little hops and flapping arms */
+  giggle: (u, T, M, k) => {
+    const A = M.amp * k, B = M.big * k, env = bump(u, 0, 0.18, 1.35, 1.9);
+    T.bodyY -= B * 2.6 * Math.abs(osc(u, 0.7)) * env;
+    T.sway += A * 4 * osc(u, 0.28) * env;
+    T.headRot += A * 5 * osc(u, 0.36, 1) * env;
+    T.armL += A * (14 + 12 * osc(u, 0.4)) * env;
+    T.armR += A * (14 + 12 * osc(u, 0.4, 1.3)) * env;
+    T.ant += A * 12 * osc(u, 0.3) * env;
+    smile(T, env * k);
+  },
+  /** after being dropped: soft landing squash, little rebound, everything settles */
+  land: (u, T, M, k) => {
+    const A = M.amp * k, B = M.big * k;
+    T.bodyY += B * kf(u, [[0, 0], [0.1, 2.4, "out"], [0.3, -1.2], [0.55, 0.5], [0.7, 0]]);
+    T.bodySY += B * kf(u, [[0, 0], [0.1, -0.07, "out"], [0.3, 0.025], [0.55, -0.008], [0.7, 0]]);
+    T.bodySX += B * kf(u, [[0, 0], [0.1, 0.05, "out"], [0.3, -0.015], [0.7, 0]]);
+    const arms = kf(u, [[0, 0], [0.1, 14, "out"], [0.45, -3], [0.8, 0]]);
+    T.armL += A * arms; T.armR += A * arms;
+    const fy = kf(u, [[0, 0], [0.1, -1.2], [0.4, 0.3], [0.7, 0]]);
+    T.fLY += A * fy; T.fRY += A * fy;
+    T.ant += A * 8 * osc(u, 0.4) * Math.max(0, 1 - u / 0.8);
+  },
+};
+
 /* -------------------------------------------------------------------- rig */
 type Spr = { x: number; v: number; w: number; z: number };
 
@@ -346,6 +425,10 @@ export class KiboRig {
   private blinkDouble = false;
   private ev = { kind: "" as "" | "glance" | "twitch" | "fidget" | "hop", start: 0, dur: 1, dir: 1, next: rnd(3, 6) };
 
+  // interaction inputs (smoothed in step(); written by setLook/setHover/setDrag/dragVelocity)
+  private I = { lx: 0, ly: 0, att: 0, hover: 0, drag: 0, vx: 0, tlx: 0, tly: 0, tatt: 0, thover: 0, tdrag: 0, tvx: 0 };
+  private rxs: { kind: Reaction; start: number; dur: number; k: number; dir: number }[] = [];
+
   constructor(private svg: SVGSVGElement) {
     for (const n of PART_NAMES) {
       const e = svg.querySelector<SVGElement>(`[data-p="${n}"]`);
@@ -370,6 +453,22 @@ export class KiboRig {
   }
   /** Re-trigger the current one-shot (e.g. the same preview button pressed twice). */
   replay() { this.startAt[this.state] = this.t; }
+  /** Cursor direction from the head, each -1..1, and how much attention to pay (0..1). */
+  setLook(x: number, y: number, attention: number) {
+    const I = this.I;
+    I.tlx = clamp(x, -1, 1); I.tly = clamp(y, -1, 1); I.tatt = clamp(attention, 0, 1);
+  }
+  /** Cursor is over Kibo: soft smile, blush, perked antenna. */
+  setHover(on: boolean) { this.I.thover = on ? 1 : 0; }
+  /** Kibo is being held / dragged: arms lift, eyes widen, feet dangle. */
+  setDrag(on: boolean) { this.I.tdrag = on ? 1 : 0; }
+  /** Window velocity in CSS px/s while moving; Kibo leans against it. */
+  dragVelocity(vx: number) { this.I.tvx = clamp(vx, -2500, 2500); }
+  /** Short additive reaction. `dir` (+1/-1) is the side Kibo recoils toward. */
+  react(kind: Reaction, strength = 1, dir = 1) {
+    if (this.rxs.length >= 2) this.rxs.shift();
+    this.rxs.push({ kind, start: this.t, dur: REACTION_DUR[kind], k: clamp(strength, 0, 1.2), dir: dir >= 0 ? 1 : -1 });
+  }
   setMode(m: MotionMode) {
     this.M = MOTION[m];
     for (const c of SPRING_CH) this.S[c].w = SPRING[GROUP_OF[c]][0] * this.M.spring;
@@ -391,11 +490,17 @@ export class KiboRig {
     if (this.last === 0) { this.last = now; return; }
     const dt = (now - this.last) / 1000;
     // slow ambient states are fully smooth at 30 fps; skipping frames roughly halves their CPU cost
-    if (SLOW_STATES.has(this.state) && this.w[this.state] > 0.98 && dt < 0.032) return;
+    if (SLOW_STATES.has(this.state) && this.w[this.state] > 0.98 && dt < 0.032 && !this.interacting()) return;
     this.last = now;
     this.step(Math.min(dt, 0.05));
     this.render();
   };
+
+  /** reactions / dragging need display-rate frames even while the base state is a slow ambient one */
+  private interacting() {
+    const I = this.I;
+    return this.rxs.length > 0 || I.drag > 0.01 || I.tdrag > 0 || Math.abs(I.vx) > 8 || Math.abs(I.tvx) > 8;
+  }
 
   private settle() {
     // run the blend until springs sit exactly on target: first paint is already a valid pose
@@ -448,6 +553,7 @@ export class KiboRig {
       }
     }
     this.idleBehaviours(T, e.idle, M);          // running gestures fade out with the idle weight; no hard cut
+    this.interaction(T, dt, M, e);
     const blink = this.blink();
 
     /* 4. secondary motion derived from the velocity of the driving parts */
@@ -474,6 +580,60 @@ export class KiboRig {
     for (let i = 0; i < n; i++) {
       s.v += (s.w * s.w * (target - s.x) - 2 * s.z * s.w * s.v) * h;
       s.x += s.v * h;
+    }
+  }
+
+  /** pointer layer: look-at, hover, held/dragged, and the short reactions (all additive, all smoothed) */
+  private interaction(T: Vec, dt: number, M: Motion, e: Record<KiboState, number>) {
+    const I = this.I, k = (tau: number) => 1 - Math.exp(-dt / tau);
+    I.lx += (I.tlx - I.lx) * k(0.12); I.ly += (I.tly - I.ly) * k(0.12);
+    I.att += (I.tatt - I.att) * k(I.tatt > I.att ? 0.35 : 1.1);
+    I.hover += (I.thover - I.hover) * k(I.thover > I.hover ? 0.25 : 0.7);
+    I.drag += (I.tdrag - I.drag) * k(I.tdrag > I.drag ? 0.14 : 0.45);
+    I.tvx *= Math.exp(-dt / 0.18);                       // velocity fades when no new window moves arrive
+    I.vx += (I.tvx - I.vx) * k(0.08);
+
+    const awake = clamp(1 - e.sleep - 0.55 * e.break, 0, 1);                        // a sleeping Kibo doesn't track
+    const calm = clamp(e.idle + 0.35 * (e.typing + e.coding + e.error + e.encourage + e.wave), 0, 1);
+    const a = I.att * awake * calm * M.amp;
+    if (a > 0.002) {                                                                // eyes lead, head follows softly
+      T.lookX += I.lx * 5 * a; T.lookY += I.ly * 3.2 * a;
+      T.headRot += I.lx * 3.5 * a; T.headX += I.lx * 1.6 * a; T.headY += I.ly * 1.2 * a;
+      T.sway += I.lx * 0.9 * a;
+    }
+    const h = I.hover * awake * calm;
+    if (h > 0.002) {
+      smile(T, 0.7 * h, false);
+      T.headY -= 0.8 * h * M.amp; T.bodyY -= 0.8 * h * M.big;
+      T.ant += 5 * h * M.amp * osc(this.t * M.speed, 0.9);
+      T.eyeSX += 0.04 * h; T.eyeSY += 0.05 * h;
+      T.armL += 3 * h; T.armR += 3 * h;
+    }
+    const d = I.drag;
+    if (d > 0.002) {                                                                // being held
+      const tt = this.t * M.speed;
+      T.armL += (20 + 5 * osc(tt, 0.9)) * d * M.amp; T.armR += (20 + 5 * osc(tt, 0.9, 1.4)) * d * M.amp;
+      T.handL += 9 * d * osc(tt, 0.5) * M.amp; T.handR += 9 * d * osc(tt, 0.5, 2) * M.amp;
+      T.eyeSX += 0.06 * d; T.eyeSY += 0.1 * d;
+      T.bodyY -= 2 * d * M.big; T.fLY += 1.5 * d * M.amp; T.fRY += 1.5 * d * M.amp;
+      smile(T, 0.6 * d, false);
+    }
+    const vn = clamp(I.vx / 900, -1, 1);                                            // lean against the motion
+    if (Math.abs(vn) > 0.004) {
+      const L = M.amp * (0.5 + 0.5 * Math.max(d, 0.4));
+      T.sway -= vn * 7 * L; T.headRot -= vn * 6 * L; T.ant -= vn * 16 * L;
+      T.fLR += vn * 14 * L; T.fRR += vn * 14 * L;
+      const up = Math.abs(vn) * 15 * d * M.amp; T.armL += up; T.armR += up;
+    }
+    this.applyReactions(T, M);
+  }
+
+  private applyReactions(T: Vec, M: Motion) {
+    const list = this.rxs;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const r = list[i], u = this.t - r.start;
+      if (u > r.dur) { list.splice(i, 1); continue; }
+      REACTIONS[r.kind](u, T, M, r.k, r.dir);
     }
   }
 

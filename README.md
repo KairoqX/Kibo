@@ -50,16 +50,30 @@ Messages are paced: at most one every 25 s (90 s in Quiet mode), never the same 
 
 ## Windows & behavior
 
-* **Floating window** (`src-tauri/tauri.conf.json`): 260×322, frameless, `transparent`, `alwaysOnTop`, `shadow: false`. The page, `html`, `body` and `#root` backgrounds are all transparent, so nothing is drawn behind Kibo except the character and its speech bubble.
-* **Move** Kibo by dragging the character (or the bubble area). A plain click makes Kibo wave back.
-* **Hover** to reveal two small buttons: open dashboard, hide Kibo.
-* **Tray icon** (`Show Kibo` / `Quit Kibo`) restores Kibo after hiding, so the window can never be lost.
-* **Dashboard** keeps its original layout and adds: live Kibo preview, 10 mood buttons (they also drive the desktop Kibo), *Encouragement messages* toggle, *Get sleepy after* timer, and *Show / hide desktop Kibo*. Settings are stored locally and shared between windows.
+* **Floating window** (`src-tauri/tauri.conf.json`): 260×322, frameless, `transparent`, `alwaysOnTop`, `shadow: false`, **`focusable: false`** (clicking or dragging Kibo does not take keyboard focus from your editor). The page, `html`, `body` and `#root` backgrounds are transparent, so nothing is drawn behind Kibo except the character and its speech bubble.
+* **Click-through.** The window ignores the mouse (`setIgnoreCursorEvents`) except where Kibo is actually painted (and the hover buttons while shown), so the transparent area around Kibo no longer blocks other apps. Because a click-through window gets no mouse events, `src/petInteraction.ts` samples the pointer position with Tauri's `cursorPosition()`: ~30×/s while the pointer is within ~420 px of Kibo, ~10×/s when it just moved far away, ~4×/s when it is still, and **not at all while Kibo is hidden**. If anything about this fails, the window fails *open* (normally clickable). Turn the whole feature off with **Dashboard → Desktop Kibo → Follow my pointer**.
+* **Interactions** (all additive layers on top of the existing rig, so they blend with idle / typing / sleep, never swap poses):
+
+| Gesture | What happens |
+|---|---|
+| Pointer comes near | Eyes lead, head follows softly; attention fades with distance and when the pointer stops moving for 5 s |
+| Hover over Kibo | Soft smile, blush, perked antenna, hover buttons appear (stay ~0.7 s after you leave); at most an occasional "Hey!" (≤ once / 90 s) |
+| Click the head | Head pat: head presses down and nuzzles, ^ ^ eyes, antenna wiggle (3 pats in 6 s → the existing *Happy* state + "Let's code!") |
+| Click the body | Poke: small recoil away from the click, arms flinch, shy smile |
+| 4 clicks in 2.4 s | Playful giggle wiggle, then a 5.5 s cooldown in which clicks only give a tiny acknowledgement |
+| Click while asleep / on break | Wakes up and waves (blends through the normal state weights) |
+| Drag | Native OS window drag (smooth). Kibo is "held": arms lift, eyes widen, leans against the motion, feet swing. On release: soft landing squash, then it settles. Released near/over a screen edge, it glides back into the nearest monitor's work area |
+
+  Bubbles from interactions are rate-limited (shared slot with the cheer messages, ≥ 8 s apart, per-category cooldowns, Quiet mode ×3).
+* **Hide / restore.** Hover button "—", Dashboard → *Show / hide desktop Kibo*, or the **tray menu**: *Show Kibo*, *Hide Kibo*, *Bring Kibo back on screen* (moves it to the bottom-right of the primary monitor), *Quit Kibo*. (No global hotkey: that would need an extra plugin.)
+* **Size.** Dashboard → *Kibo size* (Small 0.8× / Normal / Large 1.25×). The window is resized (logical px, DPI-aware) and the SVG is laid out at the new size rather than transform-scaled, so it stays crisp. Window `minWidth/minHeight` were lowered to 200×240 to allow this.
+* **Dashboard** is a separate, normal window and is unaffected by the pet's click-through.
+* **Reduced motion** is respected: reactions use the gentle profile (no hops/squash), look-at is damped.
 
 ### Platform notes / limitations
-* Transparent pixels of the window still catch mouse clicks (full click-through would need `setIgnoreCursorEvents`).
-* Transparency/always-on-top are Windows 10/11 (WebView2) behavior; other OSes are untested.
-* **Activity detection currently sees only key presses inside Kibo's own windows** (counts/timing only; key identities are never read or stored). System-wide detection is not wired up yet; the dashboard still says "Activity engine not connected yet".
+* Transparency, always-on-top and click-through are Windows 10/11 (WebView2) behaviours; other OSes untested.
+* The pet window is non-focusable, so it no longer receives key presses. Typing-state detection from key presses therefore only works in the Dashboard window until a system-wide activity engine is wired up (the dashboard still says "Activity engine not connected yet").
+* Pointer position is read locally only to aim Kibo's eyes and decide click-through. It is not stored, logged or sent anywhere.
 
 ### Feeding real activity from Rust later
 All windows listen for the `kibo:activity` event, so a future global-activity engine only needs:
@@ -70,6 +84,13 @@ app.emit("kibo:activity", serde_json::json!({ "state": "typing" }))?;           
 app.emit("kibo:activity", serde_json::json!({ "state": "error", "ms": 6000 }))?;     // one-off reaction
 ```
 (`state` ∈ idle, typing, coding, happy, achievement, wave, break, sleep, encourage, error. `serde_json` is not a dependency yet; add it if you use this.)
+
+## What changed in the interaction + readability update
+* `src/kiboRig.ts`: interaction layer (`setLook`, `setHover`, `setDrag`, `dragVelocity`, `react('pat'|'poke'|'giggle'|'land')`); runs at display rate while a reaction is playing.
+* `src/petInteraction.ts` (new): click-through, cursor awareness, click policy, drag/release, edge clamping, size presets.
+* `src/App.tsx`, `src/useKibo.ts`, `src/Kibo.tsx`, `src/kibo.css`: wiring, `speak`/`touch`, settings `aware` + `petSize`, hit-testing CSS, hover buttons beside Kibo.
+* `src/styles.css`, `src/icons.tsx` (new): dashboard rebuilt for readability. Causes found: 8–11 px text with wide letter-spacing in ALL CAPS, a runtime `@import` of Google Fonts (network dependency and fallback-font blur), Unicode/emoji glyphs standing in for icons, `transform: scale(1.04)` on the hero robot, and no opaque page background behind the dashboard text. Now: system UI font stack (Segoe UI Variable / Segoe UI), 15 px body, ≥ 13 px everywhere, rem units, vector icons, no transforms on layout, opaque page background so ClearType can be used.
+* `src-tauri`: `lib.rs` (tray: show/hide/reset), `capabilities/default.json` (window permissions), `tauri.conf.json` (`focusable:false`, smaller min size).
 
 ## What changed in the animation update
 `src/kiboRig.ts` (new animation engine), `src/Kibo.tsx` (same geometry; now hand/neck/upper groups, `data-p` hooks, cross-fading face, fading effect layers; `<text>` Zs replaced by vector paths), `src/kibo.css` (keyframe motion layer removed; effects, fades, reduced-motion), `src/useKibo.ts` (`happy` + `wave` states, replay pulse, every-100-keys cheer, `motion` setting), `src/App.tsx` (click → wave, bubble fades out, Animation setting, replay).

@@ -8,9 +8,11 @@ export type Settings = {
   quiet: boolean;        // fewer, calmer bubbles while focusing
   sleepyAfter: number;   // seconds of inactivity before "break"; sleep starts at 2x
   motion: "system" | "full"; // "system" follows the OS reduced-motion setting (gentle); "full" always animates fully
+  aware: boolean;        // pointer awareness: look at the cursor + let clicks pass through transparent areas
+  petSize: "small" | "normal" | "large";
 };
 const KEY = "kibo.settings.v1";
-export const DEFAULT_SETTINGS: Settings = { messages: true, quiet: false, sleepyAfter: 120, motion: "system" };
+export const DEFAULT_SETTINGS: Settings = { messages: true, quiet: false, sleepyAfter: 120, motion: "system", aware: true, petSize: "normal" };
 
 function load(): Settings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; }
@@ -48,6 +50,17 @@ export const POOLS: Record<KiboState, string[]> = {
   error: ["Bugs happen. We'll sort it out!", "Take a breath. We can fix this.", "It's okay, we'll figure it out together."],
 };
 const WELCOME_BACK = ["Welcome back!", "Ready when you are!"];
+
+/** Short, occasional lines for pointer interactions (the caller rate-limits them). */
+export const INTERACTION_POOLS = {
+  hover: ["Hey!", "Oh, hi!", "Hi, builder!"],
+  pat: ["Hehe!", "Nice!", "That's nice!"],
+  patStreak: ["Let's code!", "Okay, I'm happy!"],
+  poke: ["Hey!", "Boop!", "Hehe, that tickles!"],
+  giggle: ["Hehehe!", "Okay, okay!", "You're silly!"],
+  drop: ["Whoa!", "New spot!", "Wheee!"],
+  wake: ["Oh! Hi!", "I'm up, I'm up!"],
+} as const;
 
 /* ---------- cross-window activity events ---------- */
 export type ActivityEvent = { state: KiboState; ms?: number };
@@ -96,6 +109,22 @@ export function useKibo(settings: Settings) {
     window.clearTimeout(c.hideTimer);
     c.hideTimer = window.setTimeout(() => setMessage(null), 4000);
   }, []);
+
+  /** Pointer-interaction bubble: short, rate-limited, shares the single bubble slot with `say`. */
+  const speak = useCallback((pool: readonly string[], { gap = 8000, show = 2400 } = {}) => {
+    const c = r.current, s = sref.current, now = Date.now();
+    if (!s.messages || pool.length === 0) return false;
+    if (now - c.lastMsgAt < (s.quiet ? gap * 3 : gap)) return false;
+    const m = pick(pool.filter((x) => x !== c.recent[0]).length ? pool.filter((x) => x !== c.recent[0]) : [...pool]);
+    c.recent = [m, ...c.recent].slice(0, 6); c.lastMsgAt = now;
+    setMessage(m);
+    window.clearTimeout(c.hideTimer);
+    c.hideTimer = window.setTimeout(() => setMessage(null), show);
+    return true;
+  }, []);
+
+  /** Any deliberate interaction counts as activity so Kibo does not fall asleep under the user's hand. */
+  const touch = useCallback(() => { r.current.lastActivity = Date.now(); }, []);
 
   const trigger = useCallback((s: KiboState, ms = 4000, withMessage = true) => {
     const c = r.current, now = Date.now();
@@ -173,5 +202,5 @@ export function useKibo(settings: Settings) {
 
   useEffect(() => { if (!settings.messages) setMessage(null); }, [settings.messages]);
 
-  return { state, message, trigger, pulse };
+  return { state, message, trigger, pulse, speak, touch };
 }

@@ -17,13 +17,14 @@
         "url": "/",
         "width": 260,
         "height": 322,
-        "minWidth": 240,
-        "minHeight": 302,
+        "minWidth": 200,
+        "minHeight": 240,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
-        "shadow": false
+        "shadow": false,
+        "focusable": false
       }
     ],
     "security": {

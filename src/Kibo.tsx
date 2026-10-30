@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { KiboRig, type KiboState, type MotionMode } from "./kiboRig";
 
 export type { KiboState };
@@ -165,7 +165,11 @@ function useEffects(state: KiboState, replay: number): Fx[] {
  *         └ head > antenna, eyes, cheeks, mouths
  * The default pose is identical to the approved design.
  */
-export default function Kibo({ state, replay = 0, motion = "system" }: { state: KiboState; replay?: number; motion?: MotionPref }) {
+export default function Kibo({ state, replay = 0, motion = "system", rigHandle }: {
+  state: KiboState; replay?: number; motion?: MotionPref;
+  /** optional handle to the rig so the desktop pet can feed it pointer interactions without re-rendering */
+  rigHandle?: MutableRefObject<KiboRig | null>;
+}) {
   const svgRef = useRef<SVGSVGElement>(null);
   const rigRef = useRef<KiboRig | null>(null);
   const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -183,12 +187,13 @@ export default function Kibo({ state, replay = 0, motion = "system" }: { state: 
   useLayoutEffect(() => {
     const rig = new KiboRig(svgRef.current!);
     rigRef.current = rig;
+    if (rigHandle) rigHandle.current = rig;
     rig.setMode(mode);
     rig.setState(state);
     rig.start();
     const vis = () => (document.hidden ? rig.stop() : rig.start());
     document.addEventListener("visibilitychange", vis);
-    return () => { document.removeEventListener("visibilitychange", vis); rig.dispose(); rigRef.current = null; };
+    return () => { document.removeEventListener("visibilitychange", vis); rig.dispose(); rigRef.current = null; if (rigHandle) rigHandle.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { rigRef.current?.setMode(mode); }, [mode]);
