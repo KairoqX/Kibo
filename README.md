@@ -88,6 +88,29 @@ app.emit("kibo:activity", serde_json::json!({ "state": "error", "ms": 6000 }))?;
 ## Reactive companion (Alpha 0.2)
 Kibo can react to builds and long tasks you report with a small command (`node scripts/kibo-report.mjs build-succeeded`, or `... run -- npm run build`). It is optional, local-only (loopback + token), never reads terminal output or source code, and can be turned off per category in the dashboard. Details, privacy/security notes, manual tests and limitations: [EVENTS.md](EVENTS.md).
 
+**Automatic build reporting (opt-in, per project).** Nothing is detected unless you configure it, and Kibo installs no global hook ([why](EVENTS.md#why-there-is-no-global-auto-detect)). Setup is one short command per project:
+
+```powershell
+# Once per machine, optional: puts `kibo` on your PATH. It adds commands only (kibo, kibo-setup, kibo-report);
+# no project, npm config or shell profile is changed.
+cd C:\Projects\Kibo
+npm link                  # undo: npm unlink -g kibo
+
+# In each project you want reported:
+cd C:\path\to\your\project
+kibo status               # set up? is Kibo running? is the kill switch on?
+kibo enable               # shows the exact package.json change, then asks [y/N] before writing
+kibo disable              # restores the original scripts exactly
+kibo scan C:\Projects     # read-only: which projects below this folder have reporting ON
+```
+
+No `npm link`? Run `node C:\Projects\Kibo\scripts\kibo-setup.mjs <command>` instead (inside this repo: `npm run kibo -- <command>`). In scripts and CI nothing is
+written without `--apply`. `KIBO_REPORT_DISABLE=1` turns all reporting off without touching any file.
+
+npm's own `prebuild`/`postbuild` hooks can only report start and success (npm never runs `postbuild` after a failure), so the default is a
+small wrapper script. A Vite plugin is available too; Cargo has no automatic hook (use `kibo-report run`). Setup, what is and is not
+detected, privacy and troubleshooting: [EVENTS.md](EVENTS.md#automatic-build-reporting-opt-in).
+
 ## What changed in the interaction + readability update
 * `src/kiboRig.ts`: interaction layer (`setLook`, `setHover`, `setDrag`, `dragVelocity`, `react('pat'|'poke'|'giggle'|'land')`); runs at display rate while a reaction is playing.
 * `src/petInteraction.ts` (new): click-through, cursor awareness, click policy, drag/release, edge clamping, size presets.

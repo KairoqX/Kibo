@@ -1,0 +1,49 @@
+{
+  "name": "kibo-vscode",
+  "displayName": "Kibo Companion",
+  "description": "Tells your running Kibo desktop companion when a VS Code build or test task starts, succeeds or fails.",
+  "version": "0.1.0",
+  "publisher": "kairoqx",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "extensionKind": ["ui", "workspace"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": "limited", "description": "Reports only task start/finish; never reads workspace content." },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      { "command": "kibo.checkConnection", "title": "Kibo: Check Connection" },
+      { "command": "kibo.testHappy", "title": "Kibo: Test Happy Reaction" },
+      { "command": "kibo.testError", "title": "Kibo: Test Error Reaction" },
+      { "command": "kibo.enableReporting", "title": "Kibo: Enable Event Reporting" },
+      { "command": "kibo.disableReporting", "title": "Kibo: Disable Event Reporting" }
+    ],
+    "configuration": {
+      "title": "Kibo",
+      "properties": {
+        "kibo.reporting.enabled": { "type": "boolean", "default": true, "description": "Master switch. When off, nothing is ever sent to Kibo." },
+        "kibo.build.enabled": { "type": "boolean", "default": true, "description": "Report VS Code Tasks as builds (started / succeeded / failed)." },
+        "kibo.build.taskScope": { "type": "string", "enum": ["buildGroup", "all"], "default": "buildGroup", "description": "Which tasks count as builds. 'buildGroup' = only tasks in the Build group (recommended). 'all' = every non-background task." },
+        "kibo.tests.enabled": { "type": "boolean", "default": false, "description": "Report tasks in the Test group (started / passed / failed) to Kibo. Reuses Kibo's build reactions; see README." },
+        "kibo.diagnostics.enabled": { "type": "boolean", "default": false, "description": "Reserved. Kibo's protocol has no diagnostics event, so enabling this currently sends nothing." },
+        "kibo.logLevel": { "type": "string", "enum": ["off", "error", "info"], "default": "error", "description": "Output channel 'Kibo' verbosity. The token is never logged." }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "test": "tsc -p ./ && node --test \"out/test/*.test.js\"",
+    "package": "npm run compile && vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "~5.8.3"
+  }
+}

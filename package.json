@@ -3,12 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "kibo": "scripts/kibo-setup.mjs",
+    "kibo-setup": "scripts/kibo-setup.mjs",
+    "kibo-report": "scripts/kibo-report.mjs"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "typecheck:test": "tsc -p tsconfig.test.json",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
     "report": "node scripts/kibo-report.mjs",
+    "kibo": "node scripts/kibo-setup.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

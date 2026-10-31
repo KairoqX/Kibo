@@ -13,13 +13,17 @@
  * Never the command line, its output, file names or any source code. `run` does not read the
  * command's output (stdio is inherited) and always exits with the wrapped command's own exit code.
  * If Kibo is not running the reporter stays silent and exits 0, so it can never break a build.
+ *
+ * `run` is the outermost reporter of a build: the command it starts inherits KIBO_REPORT_ACTIVE=1, so npm hooks, the
+ * `kibo-npm` wrapper or the Vite plugin inside it stay silent (no duplicate/contradictory events). If `run` itself is
+ * started inside another reporter, or KIBO_REPORT_DISABLE=1 is set, it just runs the command without reporting.
+ * Ctrl+C / killed-by-signal runs report nothing. Automatic integrations: see EVENTS.md (kibo-npm.mjs, integrations/).
  */
 import net from "node:net";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { BuildRun, MAX_DURATION_MS, childEnv, classifyExit, exitCodeFor, isMainModule, reportingMode, spawnAndWait } from "./integrations/core.mjs";
 
 export const APP_ID = "dev.kairoqx.kibo";
 const COMMANDS = {
@@ -30,7 +34,6 @@ const COMMANDS = {
   "user-returned": "user_returned",
 };
 const SOURCE_RE = /^[A-Za-z0-9._-]{1,32}$/;
-const MAX_DURATION_MS = 86_400_000;
 
 /** Where Kibo publishes its port + token (matches Tauri's app_local_data_dir). */
 export function discoveryPath(env = process.env, platform = process.platform, home = os.homedir()) {
@@ -108,23 +111,17 @@ const USAGE = `Usage:
   kibo-report run [--source NAME] [--no-start] -- <command> [args...]
 Set KIBO_REPORT_VERBOSE=1 to see why an event was not delivered.`;
 
-const quoteWin = (a) => (/[\s"&|<>^]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
-
-/** Runs a command, reports its outcome, returns its exit code. Output is never read. */
-export async function runWrapped(cmdArgs, opts, { noStart = false, verbose = false, doReport = report } = {}) {
-  if (!noStart) await doReport("build_started", { source: opts.source });
-  const t0 = Date.now();
-  const child = process.platform === "win32"
-    ? spawn(cmdArgs.map(quoteWin).join(" "), [], { stdio: "inherit", shell: true })
-    : spawn(cmdArgs[0], cmdArgs.slice(1), { stdio: "inherit" });
-  const { code, signal } = await new Promise((res) => {
-    child.on("error", () => res({ code: 127, signal: null }));
-    child.on("close", (code, signal) => res({ code, signal }));
-  });
-  if (signal) return 130;                                  // cancelled by the user: say nothing
-  const r = await doReport(code === 0 ? "build_succeeded" : "build_failed", { durationMs: Math.min(Date.now() - t0, MAX_DURATION_MS), source: opts.source });
-  if (verbose && !r.ok) console.error(`kibo-report: not delivered (${r.reason})`);
-  return code ?? 1;
+/**
+ * Runs a command, reports its outcome, returns its exit code. Output is never read.
+ * Reports nothing when nested in another reporter, when KIBO_REPORT_DISABLE=1, or when the run was cancelled.
+ */
+export async function runWrapped(cmdArgs, opts, { noStart = false, verbose = false, doReport = report, env = process.env, spawnImpl, platform = process.platform, now = Date.now } = {}) {
+  const run = new BuildRun({ send: doReport, now, source: opts.source, mode: reportingMode(env), alreadyStarted: noStart });
+  if (!noStart) await run.start();
+  const { code, signal } = await spawnAndWait(cmdArgs, { env: childEnv(env), spawnImpl, platform });
+  const r = await run.finish(classifyExit(code, signal));
+  if (verbose && r.sent && !r.ok) console.error(`kibo-report: not delivered (${r.reason})`);
+  return exitCodeFor(code, signal);
 }
 
 export async function main(argv) {
@@ -143,6 +140,6 @@ export async function main(argv) {
   return 0;                                                // never fail a pipeline because Kibo is closed
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url, process.argv[1])) {
   main(process.argv.slice(2)).then((c) => process.exit(c));
 }
