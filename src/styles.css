@@ -108,3 +108,7 @@ body.is-dashboard, body.is-dashboard #root { background: var(--page); }
   .dashboard-header { flex-direction: column; align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+
+.settings-subhead { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid #edf0f5; }
+.settings-subhead h3 { margin: 0; }
+.settings-subhead code { font-size: .85em; background: #f1f4fa; padding: .05rem .35rem; border-radius: .35rem; }

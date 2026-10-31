@@ -1,35 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
 import type { KiboState } from "./Kibo";
+import { SETTINGS_KEY, loadSettings, saveSettings, type Settings, type StorageLike } from "./settings";
 
 /* ---------- settings (shared between the pet and dashboard windows) ---------- */
-export type Settings = {
-  messages: boolean;     // show encouragement speech bubbles
-  quiet: boolean;        // fewer, calmer bubbles while focusing
-  sleepyAfter: number;   // seconds of inactivity before "break"; sleep starts at 2x
-  motion: "system" | "full"; // "system" follows the OS reduced-motion setting (gentle); "full" always animates fully
-  aware: boolean;        // pointer awareness: look at the cursor + let clicks pass through transparent areas
-  petSize: "small" | "normal" | "large";
-};
-const KEY = "kibo.settings.v1";
-export const DEFAULT_SETTINGS: Settings = { messages: true, quiet: false, sleepyAfter: 120, motion: "system", aware: true, petSize: "normal" };
+// Types, defaults, validation and persistence live in settings.ts (pure, unit-tested).
+export { DEFAULT_SETTINGS, type Settings } from "./settings";
 
-function load(): Settings {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") }; }
-  catch { return DEFAULT_SETTINGS; }
-}
+const browserStorage = (): StorageLike | null => { try { return localStorage; } catch { return null; } };
 
 export function useSettings() {
-  const [settings, setSettings] = useState<Settings>(load);
+  const [settings, setSettings] = useState<Settings>(() => loadSettings(browserStorage()));
   useEffect(() => {
-    const on = (e: StorageEvent) => { if (e.key === KEY) setSettings(load()); };
+    const on = (e: StorageEvent) => { if (e.key === SETTINGS_KEY) setSettings(loadSettings(browserStorage())); };
     window.addEventListener("storage", on);
     return () => window.removeEventListener("storage", on);
   }, []);
   const update = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      saveSettings(browserStorage(), next);
       return next;
     });
   }, []);
@@ -170,6 +160,20 @@ export function useKibo(settings: Settings) {
     if (withMessage) say(POOLS[s], true);
   }, [say]);
 
+  /**
+   * Event reaction overlay (reactive companion). Like `trigger`, but does NOT reset the inactivity
+   * timer, so once the short reaction ends Kibo falls back to the state he was really in
+   * (e.g. still "break" or "sleep") instead of being silently woken. Pass `wake` to opt in to waking.
+   */
+  const react = useCallback((s: KiboState, ms: number, wake = false) => {
+    if (wake) { trigger(s, ms, false); return; }
+    const c = r.current, now = Date.now();
+    c.override = { state: s, until: now + ms };
+    c.prev = s;
+    setState(s);
+    setPulse((n) => n + 1);
+  }, [trigger]);
+
   const noteKey = useCallback(() => {
     const c = r.current, now = Date.now();
     if (now - c.lastKey > 3000) c.burstStart = now;
@@ -236,5 +240,5 @@ export function useKibo(settings: Settings) {
 
   useEffect(() => { if (!settings.messages) setMessage(null); }, [settings.messages]);
 
-  return { state, message, trigger, pulse, speak, touch };
+  return { state, message, trigger, react, pulse, speak, touch };
 }

@@ -6,11 +6,16 @@ import Kibo, { STATES, STATE_LABEL, type KiboState } from "./Kibo";
 import type { KiboRig } from "./kiboRig";
 import { INTERACTION_POOLS, sendActivity, useKibo, useSettings, type Settings } from "./useKibo";
 import { PetController, type PetEvent } from "./petInteraction";
+import { EventOrchestrator } from "./events/orchestrator";
+import { EVENT_MESSAGES } from "./events/messages";
+import { parseWireEvent } from "./events/types";
 import { IconArrow, IconClock, IconFlame, IconGrid, IconKeys, IconLock, IconMinus, IconSpark, IconStar, KiboMark } from "./icons";
 
 /** Cross-window events (also emitted by the tray menu in Rust). */
 const VISIBILITY_EVENT = "kibo:visibility";
 const RESET_EVENT = "kibo:reset-position";
+/** Validated-by-Rust, re-validated-here developer/activity events (JSON string payload). */
+const DEV_EVENT = "kibo:dev-event";
 
 /** Keeps the last message mounted for a moment so the bubble can fade out instead of vanishing. */
 function useFadingText(text: string | null, ms = 300) {
@@ -26,7 +31,7 @@ function useFadingText(text: string | null, ms = 300) {
 
 function PetWindow() {
   const [settings] = useSettings();
-  const { state, message, trigger, pulse, speak, touch } = useKibo(settings);
+  const { state, message, trigger, react, pulse, speak, touch } = useKibo(settings);
   const bubble = useFadingText(message);
   const rigRef = useRef<KiboRig | null>(null);
   const robotRef = useRef<HTMLButtonElement>(null);
@@ -34,8 +39,9 @@ function PetWindow() {
   const [showControls, setShowControls] = useState(false);
 
   // latest values for the long-lived controller callbacks (no re-subscribing, no stale closures)
-  const live = useRef({ state, trigger, speak, touch });
-  live.current = { state, trigger, speak, touch };
+  const live = useRef({ state, trigger, react, speak, touch, settings });
+  live.current = { state, trigger, react, speak, touch, settings };
+  const hiddenRef = useRef(false);     // mirrors the tray/dashboard hide state; hidden Kibo never reacts to events
 
   useEffect(() => {
     document.body.classList.add("is-pet");
@@ -76,11 +82,34 @@ function PetWindow() {
     let dead = false;
     const sub = (name: string, fn: (payload: unknown) => void) =>
       listen(name, (e) => fn(e.payload)).then((f) => { if (dead) f(); else offs.push(f); }).catch(() => { /* browser preview */ });
-    void sub(VISIBILITY_EVENT, (v) => c.setVisible(v !== false));
+    void sub(VISIBILITY_EVENT, (v) => { hiddenRef.current = v === false; c.setVisible(v !== false); });
     void sub(RESET_EVENT, () => { void c.resetPosition().then(() => c.setVisible(true)); });
     void c.keepOnScreen(false);                         // never start off-screen (monitor unplugged, resolution change...)
 
     return () => { dead = true; offs.forEach((f) => f()); c.stop(); ctl.current = null; };
+  }, []);
+
+  // reactive companion: events -> orchestrator -> existing state machine / speech bubble. Created once, fully cleaned up.
+  useEffect(() => {
+    const orch = new EventOrchestrator({
+      now: () => Date.now(),
+      settings: () => live.current.settings,
+      petState: () => live.current.state,
+      hidden: () => hiddenRef.current,
+      interacting: () => ctl.current?.isInteracting() ?? false,
+      schedule: (fn, ms) => { const id = window.setTimeout(fn, ms); return () => window.clearTimeout(id); },
+      play: (r) => {
+        const { react: rx, speak: say, settings: st } = live.current;
+        rx(r.state, r.ms, r.wake);
+        if (r.message && st.eventMessages) say(EVENT_MESSAGES[r.message], { gap: 6000, show: 3200 });
+      },
+    });
+    let off: (() => void) | undefined, dead = false;
+    listen<unknown>(DEV_EVENT, (e) => {
+      const ev = parseWireEvent(e.payload, Date.now());    // untrusted until validated; invalid input is silently ignored
+      if (ev) orch.handle(ev);
+    }).then((f) => { if (dead) f(); else off = f; }).catch(() => { /* browser preview: no event source */ });
+    return () => { dead = true; off?.(); orch.dispose(); };
   }, []);
 
   useEffect(() => { ctl.current?.setAware(settings.aware); }, [settings.aware]);
@@ -105,6 +134,7 @@ function PetWindow() {
   async function hidePet() {
     try {
       await getCurrentWindow().hide();
+      hiddenRef.current = true;
       ctl.current?.setVisible(false);
       await emit(VISIBILITY_EVENT, false);
     } catch { /* browser preview */ }
@@ -168,6 +198,11 @@ function Dashboard() {
 
   async function bringKiboBack() {
     try { await emit(RESET_EVENT); } catch { /* browser preview */ }
+  }
+
+  /** Sends a simulated event down the same path the CLI uses (Rust -> "kibo:dev-event"), for manual testing. */
+  async function simulate(type: "build_succeeded" | "build_failed") {
+    try { await emit(DEV_EVENT, JSON.stringify({ type, source: "dashboard" })); } catch { /* browser preview */ }
   }
 
   function toggleSession() {
@@ -255,6 +290,13 @@ function Dashboard() {
             <select className="setting-select" value={settings.motion} onChange={(e) => update({ motion: e.target.value as "system" | "full" })}>
               <option value="system">Follow system</option><option value="full">Always full</option>
             </select></label>
+          <div className="settings-subhead"><h3>Reactions</h3><p className="muted">How Kibo reacts to builds and tasks reported by the <code>kibo-report</code> command. Nothing is watched automatically.</p></div>
+          <label className="setting-row"><span><strong>Build &amp; task reactions</strong><small>Cheer on a finished build, look concerned when one fails.</small></span><Switch label="Build and task reactions" checked={settings.devEvents} onChange={(v) => update({ devEvents: v })} /></label>
+          <label className="setting-row"><span><strong>Activity reactions</strong><small>Say hi when you come back (only when something reports it).</small></span><Switch label="Activity reactions" checked={settings.activityEvents} onChange={(v) => update({ activityEvents: v })} /></label>
+          <label className="setting-row"><span><strong>Reaction speech bubbles</strong><small>Short lines like “Build complete!”. Also needs encouragement messages on.</small></span><Switch label="Reaction speech bubbles" checked={settings.eventMessages} onChange={(v) => update({ eventMessages: v })} /></label>
+          <label className="setting-row"><span><strong>Bigger cheer for long tasks</strong><small>A fuller celebration when something that ran for a minute or more finishes. Quiet mode keeps it subtle.</small></span><Switch label="Bigger cheer for long tasks" checked={settings.longTaskCelebrate} onChange={(v) => update({ longTaskCelebrate: v })} /></label>
+          <label className="setting-row"><span><strong>Let events wake Kibo</strong><small>Off by default: a sleeping Kibo stays asleep and ignores events.</small></span><Switch label="Let events wake Kibo" checked={settings.eventsWake} onChange={(v) => update({ eventsWake: v })} /></label>
+          <div className="button-row"><button className="ghost-button" onClick={() => simulate("build_succeeded")}>Try “build succeeded”</button><button className="ghost-button" onClick={() => simulate("build_failed")}>Try “build failed”</button></div>
           <p className="privacy-note"><IconLock size={16} /> Privacy first · No account · No cloud required</p></section>
         <footer className="dashboard-footer"><span>Kibo v0.1.0</span><span>Made for the love of building things</span></footer>
       </section>

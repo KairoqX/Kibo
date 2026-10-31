@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
+    "report": "node scripts/kibo-report.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -15,6 +18,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.0",
+    "@types/node": "^22.19.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.7.0",

@@ -1,3 +1,5 @@
+mod ipc;
+
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -47,8 +49,26 @@ pub fn run() {
                 tray = tray.icon(icon.clone());
             }
             tray.build(app)?;
+
+            // Optional local event listener (build/task events from `kibo-report`). If it cannot
+            // start, Kibo works exactly as before.
+            match app.path().app_local_data_dir() {
+                Ok(dir) => {
+                    if let Err(e) = ipc::start(app.handle(), dir) {
+                        eprintln!("Kibo: event listener unavailable: {e}");
+                    }
+                }
+                Err(e) => eprintln!("Kibo: no app data directory, event listener disabled: {e}"),
+            }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Kibo");
+        .build(tauri::generate_context!())
+        .expect("error while building Kibo")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Ok(dir) = app.path().app_local_data_dir() {
+                    ipc::cleanup(&dir);
+                }
+            }
+        });
 }

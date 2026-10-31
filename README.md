@@ -85,6 +85,9 @@ app.emit("kibo:activity", serde_json::json!({ "state": "error", "ms": 6000 }))?;
 ```
 (`state` ∈ idle, typing, coding, happy, achievement, wave, break, sleep, encourage, error. `serde_json` is not a dependency yet; add it if you use this.)
 
+## Reactive companion (Alpha 0.2)
+Kibo can react to builds and long tasks you report with a small command (`node scripts/kibo-report.mjs build-succeeded`, or `... run -- npm run build`). It is optional, local-only (loopback + token), never reads terminal output or source code, and can be turned off per category in the dashboard. Details, privacy/security notes, manual tests and limitations: [EVENTS.md](EVENTS.md).
+
 ## What changed in the interaction + readability update
 * `src/kiboRig.ts`: interaction layer (`setLook`, `setHover`, `setDrag`, `dragVelocity`, `react('pat'|'poke'|'giggle'|'land')`); runs at display rate while a reaction is playing.
 * `src/petInteraction.ts` (new): click-through, cursor awareness, click policy, drag/release, edge clamping, size presets.

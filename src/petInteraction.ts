@@ -134,6 +134,9 @@ export class PetController {
     this.ignoring = false;
   }
 
+  /** True while the user is pressing or dragging Kibo (event reactions yield to direct interaction). */
+  isInteracting() { return !!this.press || this.armed; }
+
   setAware(on: boolean) {
     this.aware = on;
     if (!on) {
